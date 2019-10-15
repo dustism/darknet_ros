@@ -70,6 +70,24 @@ image ipl_to_image(IplImage* src)
     return out;
 }
 
+cv::Mat image_to_mat(image img)
+{
+    int channels = img.c;
+    int width = img.w;
+    int height = img.h;
+    cv::Mat mat = cv::Mat(height, width, CV_8UC(channels));
+    int step = mat.step;
+
+    for (int y = 0; y < img.h; ++y) {
+        for (int x = 0; x < img.w; ++x) {
+            for (int c = 0; c < img.c; ++c) {
+                float val = img.data[c*img.h*img.w + y*img.w + x];
+                mat.data[y*step + x*img.c + c] = (unsigned char)(val * 255);
+            }
+        }
+    }
+    return mat;
+}
 
 YoloDetector::YoloDetector(ros::NodeHandle nh)
     : nodeHandle_(nh),
@@ -136,7 +154,7 @@ void YoloDetector::init()
 
   // Threshold of object detection.
   float thresh;
-  nodeHandle_.param("yolo_model/threshold/value", thresh, (float) 0.3);
+  nodeHandle_.param("yolo_model/threshold/value", thresh, (float) 0.4);
 
   // Path to weights file.
   nodeHandle_.param("yolo_model/weight_file/name", weightsModel,
@@ -303,7 +321,7 @@ bool YoloDetector::isCheckingForObjects() const
 
 bool YoloDetector::publishDetectionImage(const cv::Mat& detectionImage)
 {
-  if (detectionImagePublisher_.getNumSubscribers() < 1)
+  if (detectionImagePublisher_.getNumSubscribers() < 1){} 
     return false;
   cv_bridge::CvImage cvImage;
   cvImage.header.stamp = ros::Time::now();
@@ -571,7 +589,7 @@ void YoloDetector::yolo()
   ipl_ = cvCreateImage(cvSize(buff_[0].w, buff_[0].h), IPL_DEPTH_8U, buff_[0].c);
   int count = 0;
 
-  if (!demoPrefix_ && viewImage_) {
+  /*if (!demoPrefix_ && viewImage_) {
     cvNamedWindow("YOLO V3", CV_WINDOW_NORMAL);
     if (fullScreen_) {
       cvSetWindowProperty("YOLO V3", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
@@ -579,7 +597,7 @@ void YoloDetector::yolo()
       cvMoveWindow("YOLO V3", 0, 0);
       cvResizeWindow("YOLO V3", 640, 480);
     }
-  }
+  }*/
 
   demoTime_ = what_time_is_it_now();
 
@@ -631,7 +649,8 @@ bool YoloDetector::isNodeRunning(void)
 void *YoloDetector::publishInThread()
 {
   // Publish image.
-  cv::Mat cvImage = cv::cvarrToMat(ipl_);
+  cv::Mat cvImage = image_to_mat(buff_[(buffIndex_ + 1)%3]);
+
   if (!publishDetectionImage(cv::Mat(cvImage))) {
     ROS_DEBUG("Detection image has not been broadcasted.");
   }
